@@ -131,6 +131,7 @@ Video options:
                       (disables automatic deinterlacing)
     --detelecine    drop duplicate frames to restore original frame rate
                       (disables any deinterlacing and forced frame rate)
+    --denoise       reduce image noise such as grain
     --no-filters    disable any automatic adjustments via filters
       HERE
     end
@@ -141,6 +142,8 @@ Video options:
                     override subtitle overlay filter configuration
     --yadif-params KEY=VALUE[:KEY=VALUE]...
                     override yadif deinterlace filter configuration
+    --nlmeans-params KEY=VALUE[:KEY=VALUE]...
+                    override nlmeans denoise filter configuration
     --rc-maxrate FACTOR, --rc-bufsize FACTOR|BITRATE
                     set ratecontrol maximum rate and/or buffer size
                       as multiple of video bitrate target or specific bitrate
@@ -358,11 +361,13 @@ Requires `ffprobe`, `ffmpeg` and `mkvpropedit`.
       @max_width  = 3840
       @max_height = 2160
       @deinterlace = false
+      @denoise = false
       @rate = nil
       @detelecine = false
       @enable_filters = true
       @overlay_params = nil
       @yadif_params = nil
+      @nlmeans_params = nil
       @maxrate = nil
       @bufsize = nil
       @vt_allow_sw = false
@@ -633,6 +638,10 @@ Requires `ffprobe`, `ffmpeg` and `mkvpropedit`.
         @encoder = nil if @encoder == 'copy'
       end
 
+      opts.on '--denoise' do
+        @denoise = true
+      end
+
       opts.on '--rate ARG' do |arg|
         @rate = case arg
         when /(24000|30000|60000)\/1001/, /(24|25)\/1/
@@ -682,6 +691,14 @@ Requires `ffprobe`, `ffmpeg` and `mkvpropedit`.
         end
 
         @yadif_params = arg
+      end
+
+      opts.on '--nlmeans-params ARG' do |arg|
+        arg.split ':' do |param|
+          fail UsageError, "invalid argument: #{arg}" unless param =~ /^[\w\-]+=[\w\-\.,\(\)]+$/
+        end
+
+        @nlmeans_params = arg
       end
 
       opts.on '--rc-maxrate ARG', Float do |arg|
@@ -1785,6 +1802,13 @@ Requires `ffprobe`, `ffmpeg` and `mkvpropedit`.
         conversion_filter = nil
       end
 
+      denoise_filter = nil
+
+      if @denoise
+        denoise_filter = 'nlmeans'
+        denoise_filter += "=#{@nlmeans_params}" unless @yadif_params.nil?
+      end
+
       encode_options = []
 
       if @encoder == 'copy'
@@ -1798,6 +1822,7 @@ Requires `ffprobe`, `ffmpeg` and `mkvpropedit`.
         filter += frame_rate_filter.nil?  ? '' : ",#{frame_rate_filter}"
         filter += crop_filter.nil?        ? '' : ",#{crop_filter}"
         filter += scale_filter.nil?       ? '' : ",#{scale_filter}"
+        filter += denoise_filter.nil?     ? '' : ",#{denoise_filter}"
         filter += conversion_filter.nil?  ? '' : ",#{conversion_filter}"
         filter.sub!(/^,/, '')
       end
