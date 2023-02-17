@@ -1806,7 +1806,7 @@ Requires `ffprobe`, `ffmpeg` and `mkvpropedit`.
 
       if @denoise
         denoise_filter = 'nlmeans'
-        denoise_filter += "=#{@nlmeans_params}" unless @yadif_params.nil?
+        denoise_filter += "=#{@nlmeans_params}" unless @nlmeans_params.nil?
       end
 
       encode_options = []
